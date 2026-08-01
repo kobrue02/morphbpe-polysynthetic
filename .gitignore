@@ -32,3 +32,6 @@ cache/
 # Portable JDK fetched by jobs/setup_jdk.sh on the cluster (large, platform-
 # specific, not something to commit).
 tools/jdk/
+
+# Report is kept local-only (e.g. drafted in Overleaf), not version controlled.
+report/

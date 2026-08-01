@@ -14,8 +14,9 @@ from merge_cache import load_or_train_merges
 from metrics import consistency_f1, fertility, morph_edit_distance
 from morphbpe import BOUNDARIES_DIR, BOUNDARY_FILES
 from morphbpe import MERGE_COUNTS as MORPHBPE_MERGE_COUNTS
-from morphbpe import apply_morphbpe, learn_morphbpe, load_combined_boundary_lexicon
+from morphbpe import apply_morphbpe, learn_morphbpe, load_boundary_lexicon, load_combined_boundary_lexicon
 from tokenize_utils import tokenize_line
+from unigram import apply_unigram, load_or_train_unigram
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
@@ -114,8 +115,16 @@ def run(lang):
     dev_lines = (DATA_DIR / lang / "dev.txt").read_text(encoding="utf-8").splitlines()
     dev_words = [w for line in dev_lines for w in tokenize_line(line)]
 
+    silver_lexicon_path = BOUNDARIES_DIR / f"{lang}_silver_test.segments"
+    silver_lexicon = load_boundary_lexicon(silver_lexicon_path)
+    if not silver_lexicon:
+        raise RuntimeError(
+            f"{lang}: no silver-standard test set at {silver_lexicon_path} -- "
+            f"run: python3 src/silver_standard.py {lang}"
+        )
+    silver_words = sorted(silver_lexicon.keys())
+
     test_lines = (DATA_DIR / lang / "test.txt").read_text(encoding="utf-8").splitlines()
-    test_words = [w for line in test_lines for w in tokenize_line(line)]
 
     train_path = DATA_DIR / lang / "train.txt"
     boundary_paths = [BOUNDARIES_DIR / fname for fname in BOUNDARY_FILES[lang]]
@@ -151,14 +160,23 @@ def run(lang):
     bpe_merges = bpe_merges_max[:selected_vocab_size]
     morphbpe_merges = morphbpe_merges_max[:selected_vocab_size]
 
-    bpe_tokenized = _parallel_map(_apply_one_word, test_words, apply_bpe, bpe_merges, desc=f"{lang} bpe apply (test)", unit="word")
+    unigram_sp = load_or_train_unigram(
+        f"{lang}_unigram", [train_path], {"vocab_size": selected_vocab_size}, word_counts, selected_vocab_size
+    )
+
+    bpe_tokenized = _parallel_map(
+        _apply_one_word, silver_words, apply_bpe, bpe_merges, desc=f"{lang} bpe apply (silver test)", unit="word"
+    )
     morphbpe_tokenized = _parallel_map(
-        _apply_one_word, test_words, apply_morphbpe, morphbpe_merges, desc=f"{lang} morphbpe apply (test)", unit="word"
+        _apply_one_word, silver_words, apply_morphbpe, morphbpe_merges, desc=f"{lang} morphbpe apply (silver test)", unit="word"
+    )
+    unigram_tokenized = _parallel_map(
+        _apply_one_word, silver_words, apply_unigram, unigram_sp, desc=f"{lang} unigram apply (silver test)", unit="word"
     )
 
     train_lm = lambda tr, te, variant: train_and_evaluate_transformer_lm(tr, te, lang=lang, variant=variant)
 
-    print(f"{lang}: training small LMs (bpe, morphbpe) at the selected vocab size...")
+    print(f"{lang}: training small LMs (bpe, morphbpe, unigram) at the selected vocab size...")
     bpe_train_sentences = tokenize_sentences(train_lines, apply_bpe, bpe_merges, desc=f"{lang} bpe tokenize (train)")
     bpe_test_sentences = tokenize_sentences(test_lines, apply_bpe, bpe_merges, desc=f"{lang} bpe tokenize (test)")
     bpe_lm_result = train_lm(bpe_train_sentences, bpe_test_sentences, "bpe")
@@ -171,11 +189,19 @@ def run(lang):
     )
     morphbpe_lm_result = train_lm(morphbpe_train_sentences, morphbpe_test_sentences, "morphbpe")
 
+    unigram_train_sentences = tokenize_sentences(
+        train_lines, apply_unigram, unigram_sp, desc=f"{lang} unigram tokenize (train)"
+    )
+    unigram_test_sentences = tokenize_sentences(
+        test_lines, apply_unigram, unigram_sp, desc=f"{lang} unigram tokenize (test)"
+    )
+    unigram_lm_result = train_lm(unigram_train_sentences, unigram_test_sentences, "unigram")
+
     results = {
         "language": lang,
         "n_train_word_types": len(word_counts),
         "n_dev_words": len(dev_words),
-        "n_test_words": len(test_words),
+        "n_silver_test_words": len(silver_words),
         "n_reference_lexicon_entries": len(reference_lexicon),
         "vocab_size_selection": {
             "max_ceiling": len(morphbpe_merges_max),
@@ -185,16 +211,23 @@ def run(lang):
         "bpe": {
             "num_merges": len(bpe_merges),
             "fertility": fertility(bpe_tokenized),
-            "consistency": consistency_f1(test_words, bpe_tokenized, reference_lexicon),
-            "morph_edit_distance": morph_edit_distance(test_words, bpe_tokenized, reference_lexicon),
+            "consistency": consistency_f1(silver_words, bpe_tokenized, silver_lexicon),
+            "morph_edit_distance": morph_edit_distance(silver_words, bpe_tokenized, silver_lexicon),
             "lm": bpe_lm_result,
         },
         "morphbpe": {
             "num_merges": len(morphbpe_merges),
             "fertility": fertility(morphbpe_tokenized),
-            "consistency": consistency_f1(test_words, morphbpe_tokenized, reference_lexicon),
-            "morph_edit_distance": morph_edit_distance(test_words, morphbpe_tokenized, reference_lexicon),
+            "consistency": consistency_f1(silver_words, morphbpe_tokenized, silver_lexicon),
+            "morph_edit_distance": morph_edit_distance(silver_words, morphbpe_tokenized, silver_lexicon),
             "lm": morphbpe_lm_result,
+        },
+        "unigram": {
+            "vocab_size": selected_vocab_size,
+            "fertility": fertility(unigram_tokenized),
+            "consistency": consistency_f1(silver_words, unigram_tokenized, silver_lexicon),
+            "morph_edit_distance": morph_edit_distance(silver_words, unigram_tokenized, silver_lexicon),
+            "lm": unigram_lm_result,
         },
     }
 
@@ -203,7 +236,7 @@ def run(lang):
     out_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"{lang}: wrote {out_path}")
 
-    for variant in ("bpe", "morphbpe"):
+    for variant in ("bpe", "morphbpe", "unigram"):
         wandb_utils.log({
             f"{lang}/{variant}/final/fertility": results[variant]["fertility"],
             f"{lang}/{variant}/final/consistency_f1": results[variant]["consistency"]["f1"],

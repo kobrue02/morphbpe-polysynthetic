@@ -12,5 +12,6 @@ uv sync
 python3 src/fetch_data.py cree
 python3 src/split_data.py cree
 python3 src/morfessor_train.py cree
+python3 src/silver_standard.py cree
 
 echo "Cree prep complete -- now run: sbatch jobs/pipeline_cree.sh"

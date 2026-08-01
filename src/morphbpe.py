@@ -1,3 +1,9 @@
+# Implements Algorithm 1 ("Morph-Aware Byte Pair Encoding") from:
+#   Asgari, El Kheir & Sadraei Javaheri (2025), "MorphBPE: A Morpho-Aware
+#   Tokenizer Bridging Linguistic Complexity for Efficient LLM Training
+#   Across Morphologies," arXiv:2502.00894.
+# This module is our own implementation from the paper's pseudocode; the
+# authors' code is not publicly available, so nothing is reused from it.
 from pathlib import Path
 
 from bpe import END_MARKER, apply_merges, finalize_tokens, learn_merges, word_to_symbols

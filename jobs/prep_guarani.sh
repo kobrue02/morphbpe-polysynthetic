@@ -11,5 +11,6 @@ uv sync
 
 python3 src/fetch_data.py guarani
 python3 src/morfessor_train.py guarani
+python3 src/silver_standard.py guarani
 
 echo "Guarani prep complete -- now run: sbatch jobs/pipeline_guarani.sh"

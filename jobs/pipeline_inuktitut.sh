@@ -40,6 +40,7 @@ javac -cp tools/uqailaut/Uqailaut.jar tools/uqailaut/BatchDecompose.java
 echo "Starting Inuktitut pipeline"
 python3 src/morfessor_train.py inuktitut && \
 python3 src/fst_boundaries_iku.py && \
+python3 src/silver_standard.py inuktitut && \
 python3 src/run_experiment.py inuktitut
 
 if [ $? -eq 0 ]; then
