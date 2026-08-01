@@ -66,7 +66,7 @@ def build_word_counts(lines, tokenize_line):
     return word_counts
 
 
-MERGE_COUNTS = {"cree": 1000, "inuktitut": 8000, "guarani": 3000}
+MERGE_COUNTS = {"cree": 2000, "inuktitut": 8000, "guarani": 3000}
 
 BOUNDARY_FILES = {
     "cree": ["cree_fst.segments", "cree_morfessor.segments"],
