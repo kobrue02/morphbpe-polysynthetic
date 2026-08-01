@@ -39,3 +39,8 @@ tools/uqailaut/*.class
 
 # Report is kept local-only (e.g. drafted in Overleaf), not version controlled.
 report/
+
+# Experiment output -- fully reproducible via run_experiment.py, and tracking
+# it risks a stale committed version silently coexisting with (or clobbering)
+# a fresh local run.
+results/
