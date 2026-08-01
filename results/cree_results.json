@@ -1,0 +1,117 @@
+{
+  "language": "cree",
+  "n_train_word_types": 17707,
+  "n_dev_words": 3891,
+  "n_test_words": 3907,
+  "n_reference_lexicon_entries": 17707,
+  "vocab_size_selection": {
+    "max_ceiling": 1000,
+    "selected": 1000,
+    "dev_mean_edit_distance_by_length": {
+      "100": 0.7180569465224466,
+      "200": 0.5740131568573649,
+      "300": 0.4976919973563741,
+      "400": 0.4586451464378405,
+      "500": 0.4074985504660806,
+      "600": 0.3906579397291229,
+      "700": 0.3639816838380682,
+      "800": 0.3488123733206464,
+      "900": 0.33663889012780646,
+      "1000": 0.3201485214754021
+    }
+  },
+  "bpe": {
+    "num_merges": 1000,
+    "fertility": 2.351932428973637,
+    "consistency": {
+      "precision": 0.2238405519356075,
+      "recall": 0.3279056709713644,
+      "f1": 0.2660592255125285,
+      "n_scored_words": 3185,
+      "n_test_words": 3907
+    },
+    "morph_edit_distance": {
+      "mean_edit_distance": 0.47010415887966944,
+      "n_scored_words": 3185,
+      "n_test_words": 3907
+    },
+    "lm": {
+      "architecture": "gpt_neox (Pythia-14M hyperparameters, depth halved (~7M-scale, not an official Pythia size), randomly initialized, vocab resized)",
+      "vocab_size": 1006,
+      "n_parameters": 852608,
+      "n_train_examples": 244992,
+      "tokens_per_parameter": 0.28734424260621527,
+      "seq_len": 128,
+      "train_loss_checkpoints": [
+        5.409744389851888,
+        4.386526346206665,
+        4.026913932959238,
+        3.839942232767741,
+        3.679182934761047,
+        3.533221205075582,
+        3.4127057075500487,
+        3.3093050122261047,
+        3.227153480052948,
+        3.155119327704112,
+        3.093248935540517,
+        3.0376282731691995,
+        2.985764479637146,
+        2.9383687456448873,
+        2.8919909795125327,
+        2.85012233654658,
+        2.8080217401186625,
+        2.7696027636528013,
+        2.730829155445099,
+        2.6938249349594114
+      ],
+      "test_cross_entropy": 2.972027599811554
+    }
+  },
+  "morphbpe": {
+    "num_merges": 1000,
+    "fertility": 2.599180957256207,
+    "consistency": {
+      "precision": 0.35866705641625257,
+      "recall": 0.6889387984278496,
+      "f1": 0.4717416378316033,
+      "n_scored_words": 3185,
+      "n_test_words": 3907
+    },
+    "morph_edit_distance": {
+      "mean_edit_distance": 0.3237583165134182,
+      "n_scored_words": 3185,
+      "n_test_words": 3907
+    },
+    "lm": {
+      "architecture": "gpt_neox (Pythia-14M hyperparameters, depth halved (~7M-scale, not an official Pythia size), randomly initialized, vocab resized)",
+      "vocab_size": 955,
+      "n_parameters": 839552,
+      "n_train_examples": 262656,
+      "tokens_per_parameter": 0.3128525689891752,
+      "seq_len": 128,
+      "train_loss_checkpoints": [
+        5.309244427314171,
+        4.10192165007958,
+        3.7109610374157245,
+        3.529307277386005,
+        3.390667618238009,
+        3.258465106670673,
+        3.1455732895777775,
+        3.05503328029926,
+        2.981681966781616,
+        2.9186128579653228,
+        2.857948974462656,
+        2.8056417281811052,
+        2.7595270230219913,
+        2.7142072897690994,
+        2.67128178523137,
+        2.630489947245671,
+        2.5915081427647517,
+        2.5529855508070725,
+        2.5217796949239877,
+        2.4891653501070463
+      ],
+      "test_cross_entropy": 2.7430909872055054
+    }
+  }
+}

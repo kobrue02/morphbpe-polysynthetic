@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environment
+.venv/
+
+# macOS
+.DS_Store
+
+# Experiment tracking (local offline runs; not meant for version control)
+wandb/
+
+# SLURM job output/error logs (jobs/*.sh themselves are tracked, these aren't)
+logs/
+
+# Fetched/derived corpora and boundary lexicons -- fully reproducible via
+# fetch_data.py / split_data.py / morfessor_train.py / fst_boundaries_*.py.
+# tools/ is NOT ignored: it holds vendored third-party artifacts (lang-crk,
+# Uqailaut, apertium-grn) that are not reproducible by re-running project
+# code alone.
+data/
+boundaries/
+
+# Content-hash-cached BPE/MorphBPE merge lists (merge_cache.py) -- derived,
+# regenerated automatically on a cache miss.
+cache/
+
+# Portable JDK fetched by jobs/setup_jdk.sh on the cluster (large, platform-
+# specific, not something to commit).
+tools/jdk/

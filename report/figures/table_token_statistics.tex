@@ -1,0 +1,39 @@
+% Standalone preview of Table 1 (token/morphology statistics). Compile
+% directly to check rendering, or copy the tabular block (marked below)
+% into the main paper, which should already load booktabs.
+%
+% "# of Word Types" and "Avg. Morphemes per Word" are both computed over
+% this project's *training-split* boundary lexicon (Morfessor, backed by
+% giellalt/lang-crk for Cree, the Uqailaut analyzer for Inuktitut, and
+% apertium-grn for Guarani, wherever each analyzer covers a word) -- i.e.
+% exactly the same reference lexicon Consistency F1 / Morph Edit Distance
+% are scored against in Table 2 and report/writeup.md.
+%
+% Guarani is labeled "Agglutinative" rather than "Polysynthetic" --
+% unlike Cree/Inuktitut, it isn't usually classified as polysynthetic in
+% the typological literature, though it shares some of the same
+% morphologically-rich properties (polypersonal verb agreement, some noun
+% incorporation) that motivate testing MorphBPE on it. See
+% report/writeup.md's limitations section.
+\documentclass{standalone}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+\begin{document}
+\begin{minipage}{13cm}
+{\bfseries Table 1:} Token statistics for the morphological boundary lexicons used in BPE and \textit{MorphBPE} training and tokenizer evaluation, Plains Cree, Inuktitut, and Guarani.
+
+\vspace{0.5em}
+% ---- copy from here into the paper ----
+\begin{tabular}{llrr}
+\toprule
+Language & Morphology Type & \# of Word Types & Avg. Morphemes per Word \\
+\midrule
+Cree      & Polysynthetic (preverb + stem + suffixes)        & 17{,}707  & 2.47 \\
+Inuktitut & Polysynthetic (root + productive suffix chains)  & 423{,}450 & 2.50 \\
+Guarani   & Agglutinative (verb agreement + noun incorporation) & 46{,}754 & 1.84 \\
+\bottomrule
+\end{tabular}
+% ---- to here ----
+\end{minipage}
+\end{document}

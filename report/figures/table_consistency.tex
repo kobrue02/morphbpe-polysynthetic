@@ -1,0 +1,37 @@
+% Standalone preview of Table 2 (Morph.-Consistency evaluation). Compile
+% directly to check rendering, or copy the tabular block (marked below)
+% into the main paper, which should already load booktabs.
+%
+% Unlike the source paper's Table 2, these are single-run point estimates
+% on one fixed test split, not a mean +/- std over multiple resamples --
+% this project didn't bootstrap/resample, so no variance figure is
+% reported rather than fabricating one. If resampled variance is wanted
+% later, metrics.consistency_f1 would need to be re-run over bootstrap
+% samples of the test set.
+\documentclass{standalone}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+\begin{document}
+\begin{minipage}{13.5cm}
+{\bfseries Table 2:} Morph.-consistency evaluation: Precision, Recall, and F1-score for BPE and \textit{MorphBPE}, Plains Cree, Inuktitut, and Guarani. Single evaluation run on the held-out test split (no resampling); a higher F1-score indicates greater consistency in segmenting words with similar or dissimilar morphemes.
+
+\vspace{0.5em}
+% ---- copy from here into the paper ----
+\begin{tabular}{lccc}
+\toprule
+Model & Precision & Recall & Morph.-Consistency F1-score \\
+\midrule
+Cree BPE (1K)             & 0.22 & 0.33 & 0.27 \\
+Cree \textit{MorphBPE} (1K)       & 0.36 & 0.69 & \textbf{0.47} \\
+\addlinespace
+Inuktitut BPE (8K)        & 0.44 & 0.21 & 0.28 \\
+Inuktitut \textit{MorphBPE} (8K)  & 0.62 & 0.50 & \textbf{0.56} \\
+\addlinespace
+Guarani BPE (3K)          & 0.07 & 0.28 & 0.11 \\
+Guarani \textit{MorphBPE} (3K)    & 0.14 & 0.66 & \textbf{0.24} \\
+\bottomrule
+\end{tabular}
+% ---- to here ----
+\end{minipage}
+\end{document}
