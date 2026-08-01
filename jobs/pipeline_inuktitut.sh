@@ -28,6 +28,10 @@ if [ ! -x "$PROJECT_ROOT/tools/jdk/bin/java" ]; then
     exit 1
 fi
 echo "Java: $(which java) ($(java -version 2>&1 | head -1))"
+if ! javac -version 2>&1 | head -1; then
+    echo "javac at tools/jdk/ is broken -- re-run 'bash jobs/setup_jdk.sh' on the login node." >&2
+    exit 1
+fi
 
 source $PROJECT_ROOT/.venv/bin/activate
 cd $PROJECT_ROOT
@@ -35,7 +39,10 @@ uv sync
 mkdir -p logs
 python3 -c "import torch; print('CUDA available:', torch.cuda.is_available(), '--', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no GPU visible')"
 
-javac -cp tools/uqailaut/Uqailaut.jar tools/uqailaut/BatchDecompose.java
+javac -cp tools/uqailaut/Uqailaut.jar tools/uqailaut/BatchDecompose.java || {
+    echo "Failed to compile BatchDecompose.java -- aborting rather than risk running against a stale .class file." >&2
+    exit 1
+}
 
 echo "Starting Inuktitut pipeline"
 python3 src/morfessor_train.py inuktitut && \

@@ -33,5 +33,9 @@ cache/
 # specific, not something to commit).
 tools/jdk/
 
+# Compiled BatchDecompose class files -- platform/JDK-version-specific build
+# output, recompiled fresh by jobs/pipeline_inuktitut.sh on every run.
+tools/uqailaut/*.class
+
 # Report is kept local-only (e.g. drafted in Overleaf), not version controlled.
 report/
