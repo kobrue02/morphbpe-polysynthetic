@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=16
 #SBATCH --time=2-00:00:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
@@ -20,18 +20,7 @@ echo "Python: $(which python3)"
 export PYTHONUNBUFFERED=1
 export HF_HOME=$PROJECT_ROOT/.cache/huggingface
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-export PATH=$PROJECT_ROOT/tools/jdk/bin:$PATH
 mkdir -p "$HF_HOME"
-
-if [ ! -x "$PROJECT_ROOT/tools/jdk/bin/java" ]; then
-    echo "No JDK at tools/jdk/ -- run 'bash jobs/setup_jdk.sh' on the login node first." >&2
-    exit 1
-fi
-echo "Java: $(which java) ($(java -version 2>&1 | head -1))"
-if ! javac -version 2>&1 | head -1; then
-    echo "javac at tools/jdk/ is broken -- re-run 'bash jobs/setup_jdk.sh' on the login node." >&2
-    exit 1
-fi
 
 source $PROJECT_ROOT/.venv/bin/activate
 cd $PROJECT_ROOT
@@ -39,15 +28,12 @@ uv sync
 mkdir -p logs
 python3 -c "import torch; print('CUDA available:', torch.cuda.is_available(), '--', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no GPU visible')"
 
-javac -cp tools/uqailaut/Uqailaut.jar tools/uqailaut/BatchDecompose.java || {
-    echo "Failed to compile BatchDecompose.java -- aborting rather than risk running against a stale .class file." >&2
+if [ ! -s "$PROJECT_ROOT/boundaries/inuktitut_silver_test.segments" ]; then
+    echo "No boundaries/inuktitut_silver_test.segments -- run 'sbatch jobs/segment_inuktitut.sh' first." >&2
     exit 1
-}
+fi
 
-echo "Starting Inuktitut pipeline"
-python3 src/morfessor_train.py inuktitut && \
-python3 src/fst_boundaries_iku.py && \
-python3 src/silver_standard.py inuktitut && \
+echo "Starting Inuktitut pipeline (LM training only -- segmentation assumed already done)"
 python3 src/run_experiment.py inuktitut
 
 if [ $? -eq 0 ]; then
