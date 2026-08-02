@@ -1,10 +1,9 @@
+import os
 import queue
-import random
 import re
 import shutil
 import subprocess
 import threading
-import time
 from pathlib import Path
 
 from tqdm import tqdm
@@ -17,8 +16,6 @@ BOUNDARIES_DIR = Path(__file__).resolve().parent.parent / "boundaries"
 
 PER_WORD_TIMEOUT_SECONDS = 8.0
 RESULT_PREFIX = "RESULT"
-
-MAX_TOTAL_SECONDS = 90 * 60
 
 _DECOMP_PART = re.compile(r"\{([^:{}]*):[^{}]*\}")
 
@@ -54,27 +51,26 @@ def _start_process():
     )
 
 
-def decompose_words(words):
-    results = [None] * len(words)
-    idx = 0
-    n_restarts = 0
-    start_time = time.monotonic()
-    progress = tqdm(total=len(words), desc="inuktitut Uqailaut decompose", unit="word")
+def _num_workers():
+    env = os.environ.get("SLURM_CPUS_PER_TASK")
+    if env:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    return max(1, os.cpu_count() or 1)
 
-    while idx < len(words):
-        if time.monotonic() - start_time > MAX_TOTAL_SECONDS:
-            progress.write(
-                f"  ...hit the {MAX_TOTAL_SECONDS}s overall deadline at word {idx}/{len(words)}; "
-                f"treating the rest as unanalyzable"
-            )
-            break
-        remaining = words[idx:]
+
+def _decompose_chunk(indexed_words, results, progress, progress_lock, stall_counter, stall_lock):
+    idx = 0
+    while idx < len(indexed_words):
+        remaining = indexed_words[idx:]
         proc = _start_process()
         out_q = queue.Queue()
 
         def writer(stdin=proc.stdin, to_send=remaining):
             try:
-                for w in to_send:
+                for _, w in to_send:
                     stdin.write(w + "\n")
                 stdin.close()
             except (BrokenPipeError, ValueError):
@@ -103,31 +99,60 @@ def decompose_words(words):
                 break
             if line is None:
                 break
-            results[idx + local_i] = line
+            results[remaining[local_i][0]] = line
             local_i += 1
+            with progress_lock:
+                progress.update(1)
 
         proc.kill()
         proc.wait()
 
-        progress.update(local_i)
-        progress.set_postfix(stalls=n_restarts)
-
         if stalled:
-            n_restarts += 1
-            progress.write(
-                f"  ...stall on {words[idx + local_i]!r} (word {idx + local_i}/{len(words)}), "
-                f"skipping and restarting"
-            )
-            results[idx + local_i] = ""
+            with stall_lock:
+                stall_counter[0] += 1
+                n_stalls = stall_counter[0]
+            results[remaining[local_i][0]] = ""
             idx = idx + local_i + 1
-            progress.update(1)
-            wandb_utils.log({"inuktitut/uqailaut/n_restarts": n_restarts, "inuktitut/uqailaut/word_index": idx})
+            with progress_lock:
+                progress.update(1)
+                progress.set_postfix(stalls=n_stalls)
         elif local_i < len(remaining):
-            results[idx + local_i] = ""
+            # reader hit EOF before delivering a result for this word (process died)
+            results[remaining[local_i][0]] = ""
             idx = idx + local_i + 1
-            progress.update(1)
+            with progress_lock:
+                progress.update(1)
         else:
             idx = idx + local_i
+
+
+def decompose_words(words, num_workers=None):
+    if not words:
+        return []
+    num_workers = max(1, min(num_workers or _num_workers(), len(words)))
+
+    results = [None] * len(words)
+    progress = tqdm(total=len(words), desc="inuktitut Uqailaut decompose", unit="word")
+    progress_lock = threading.Lock()
+    stall_counter = [0]
+    stall_lock = threading.Lock()
+
+    # Round-robin (not contiguous) assignment: words are frequency-sorted, and
+    # frequency tends to correlate with word length/complexity in polysynthetic
+    # languages, so a contiguous split would give some workers all the fast
+    # (frequent, short) words and others all the slow (rare, long) ones.
+    indexed = list(enumerate(words))
+    threads = [
+        threading.Thread(
+            target=_decompose_chunk,
+            args=(indexed[worker::num_workers], results, progress, progress_lock, stall_counter, stall_lock),
+        )
+        for worker in range(num_workers)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
     progress.close()
     return [r if r is not None else "" for r in results]
@@ -144,8 +169,6 @@ def decomposition_to_morphs(decomposition, word):
 
 _LIKELY_UNANALYZABLE = re.compile(r"\d|--|[^\w\-]|^[A-Z]")
 
-MAX_WORD_TYPES = 15_000
-
 
 def build_boundary_lexicon():
     from collections import Counter
@@ -158,18 +181,14 @@ def build_boundary_lexicon():
     lines = train_path.read_text(encoding="utf-8").splitlines()
     word_counts = Counter(w for line in lines for w in tokenize_line(line))
 
-    candidates = [w for w in word_counts if not _LIKELY_UNANALYZABLE.search(w)]
-    n_skipped_unanalyzable = len(word_counts) - len(candidates)
-
-    candidates.sort(key=lambda w: word_counts[w], reverse=True)
-    word_types = candidates[:MAX_WORD_TYPES]
-    random.Random(0).shuffle(word_types)
-    n_skipped_rare = len(candidates) - len(word_types)
+    word_types = [w for w in word_counts if not _LIKELY_UNANALYZABLE.search(w)]
+    n_skipped_unanalyzable = len(word_counts) - len(word_types)
+    word_types.sort(key=lambda w: word_counts[w], reverse=True)
 
     print(
-        f"inuktitut Uqailaut: decomposing {len(word_types)} most-frequent word types "
-        f"({n_skipped_unanalyzable} pre-skipped as likely-unanalyzable, "
-        f"{n_skipped_rare} more skipped as too rare to be worth the cost)..."
+        f"inuktitut Uqailaut: decomposing all {len(word_types)} candidate word types "
+        f"({n_skipped_unanalyzable} pre-skipped as likely-unanalyzable), "
+        f"using {_num_workers()} parallel workers..."
     )
     decompositions = decompose_words(word_types)
 

@@ -58,11 +58,11 @@ def build_silver_test_guarani():
     return _write("guarani", lexicon, novel)
 
 
-def build_silver_test_inuktitut(max_words=5000):
+def build_silver_test_inuktitut():
     from fst_boundaries_iku import decompose_words, decomposition_to_morphs
 
     novel, train_types, test_types = novel_test_word_types("inuktitut")
-    words = novel[:max_words] if max_words is not None else novel
+    words = novel
     decompositions = decompose_words(words)
     lexicon = {}
     for word, decomposition in zip(words, decompositions):
