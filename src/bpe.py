@@ -177,7 +177,7 @@ def build_word_counts(lines, tokenize_line):
     return word_counts
 
 
-MERGE_COUNTS = {"cree": 4000, "inuktitut": 8000, "guarani": 12000}
+MERGE_COUNTS = {"cree": 10000, "inuktitut": 8000, "guarani": 12000}
 
 
 def train_and_apply(lang):
