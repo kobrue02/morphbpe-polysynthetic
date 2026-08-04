@@ -56,6 +56,22 @@ def _levenshtein(a, b):
     return prev_row[-1]
 
 
+def morph_edit_distance_per_word(scored_words, tokenized_words, reference_lexicon):
+    """Like morph_edit_distance, but returns the per-word distance list (no averaging).
+
+    scored_words must already be filtered to words present in reference_lexicon, and
+    tokenized_words must be the corresponding tokenization for each word in the same
+    order -- this keeps the returned list directly comparable (paired) across calls
+    with different tokenizations of the same scored_words, e.g. for a paired t-test.
+    """
+    distances = []
+    for word, tokens in zip(scored_words, tokenized_words):
+        ref_morphs = reference_lexicon[word]
+        denom = max(len(tokens), len(ref_morphs))
+        distances.append(_levenshtein(tokens, ref_morphs) / denom if denom else 0.0)
+    return distances
+
+
 def morph_edit_distance(test_words, tokenized_words, reference_lexicon):
     total_distance = 0.0
     n_scored = 0

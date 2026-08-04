@@ -11,10 +11,11 @@ from bpe import apply_bpe, apply_merges_with_checkpoints, finalize_tokens, learn
 from bpe import build_word_counts as _build_word_counts
 from lm_transformer import train_and_evaluate as train_and_evaluate_transformer_lm
 from merge_cache import load_or_train_merges
-from metrics import consistency_f1, fertility, morph_edit_distance
+from metrics import consistency_f1, fertility, morph_edit_distance, morph_edit_distance_per_word
 from morphbpe import BOUNDARIES_DIR, BOUNDARY_FILES
 from morphbpe import MERGE_COUNTS as MORPHBPE_MERGE_COUNTS
 from morphbpe import apply_morphbpe, learn_morphbpe, load_boundary_lexicon, load_combined_boundary_lexicon
+from scipy import stats
 from tokenize_utils import tokenize_line
 from unigram import apply_unigram, load_or_train_unigram
 
@@ -76,21 +77,56 @@ def _checkpoint_lengths(lang, max_len):
     return lengths
 
 
+SIGNIFICANCE_ALPHA = 0.05
+
+
+def _select_by_significance(lengths, per_word_distances_by_length, mean_by_length):
+    """Smallest length beyond which no larger length is a significantly better (paired,
+    one-sided t-test) morph edit distance on the dev set -- mirrors the selection
+    criterion described in Asgari et al. (2025): sweep vocab sizes and pick the
+    smallest one past which further increases stop yielding significant improvement.
+    Falls back to the largest swept length if every larger length keeps improving
+    significantly all the way to the ceiling (also matches their behavior for
+    languages -- e.g. English/Arabic in their study -- that never plateau).
+    """
+    for i, li in enumerate(lengths):
+        distances_i = per_word_distances_by_length[li]
+        significantly_better_later = False
+        for lj in lengths[i + 1 :]:
+            if mean_by_length[lj] >= mean_by_length[li]:
+                continue
+            distances_j = per_word_distances_by_length[lj]
+            t_stat, p_two_sided = stats.ttest_rel(distances_i, distances_j)
+            if t_stat > 0 and (p_two_sided / 2) < SIGNIFICANCE_ALPHA:
+                significantly_better_later = True
+                break
+        if not significantly_better_later:
+            return li
+    return lengths[-1]
+
+
 def select_vocab_size(lang, morphbpe_merges, dev_words, reference_lexicon):
     lengths = _checkpoint_lengths(lang, len(morphbpe_merges))
 
+    scored_words = [w for w in dev_words if w in reference_lexicon]
+
     tokenized_by_length = {k: [] for k in lengths}
-    for word in tqdm(dev_words, desc=f"{lang} vocab-size sweep", unit="word"):
+    for word in tqdm(scored_words, desc=f"{lang} vocab-size sweep", unit="word"):
         snapshots = apply_merges_with_checkpoints(word_to_symbols(word), morphbpe_merges, lengths)
         for k in lengths:
             tokenized_by_length[k].append(finalize_tokens(snapshots[k]))
 
-    distances = {
-        k: morph_edit_distance(dev_words, tokenized_by_length[k], reference_lexicon)["mean_edit_distance"]
+    per_word_distances_by_length = {
+        k: morph_edit_distance_per_word(scored_words, tokenized_by_length[k], reference_lexicon)
         for k in lengths
     }
-    best_length = min(distances, key=distances.get)
-    return best_length, distances
+
+    mean_by_length = {
+        k: sum(per_word_distances_by_length[k]) / len(per_word_distances_by_length[k])
+        for k in lengths
+    }
+    best_length = _select_by_significance(lengths, per_word_distances_by_length, mean_by_length)
+    return best_length, mean_by_length
 
 
 def tokenize_sentences(lines, apply_fn, merges, desc=None):

@@ -15,4 +15,5 @@ dependencies = [
     "tqdm>=4.70.0",
     "requests>=2.32.0",
     "sentencepiece>=0.2.0",
+    "scipy>=1.14.0",
 ]
